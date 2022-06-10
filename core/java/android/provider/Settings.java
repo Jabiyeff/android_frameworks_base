@@ -5799,6 +5799,12 @@ public final class Settings {
          */
         public static final String SMART_PIXELS_ON_POWER_SAVE = "smart_pixels_on_power_save";
 
+	/**
+	* Whether Smart Pixels should enable on AOD
+	* @hide
+	*/
+	public static final String SMART_PIXELS_ON_AOD = "smart_pixels_on_aod";
+
         /**
          * reTicker Status
          * @hide

@@ -1395,6 +1395,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         final int mSmartPixelsOnPowerSave = Settings.System.getIntForUser(
                 mContext.getContentResolver(), Settings.System.SMART_PIXELS_ON_POWER_SAVE,
                 0, UserHandle.USER_CURRENT);
+	final int mSmartPixelsOnAOD = Settings.System.getIntForUser(
+		mContext.getContentResolver(), Settings.System.SMART_PIXELS_ON_AOD,
+		0, UserHandle.USER_CURRENT);
 
         if (mPowerRequest.lowPowerMode) {
             if ((brightnessState > PowerManager.BRIGHTNESS_MIN) &&

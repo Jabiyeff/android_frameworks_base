@@ -27,6 +27,7 @@ import android.os.PowerManager;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.Display;
 
 public class SmartPixelsReceiver extends BroadcastReceiver {
    private static final String TAG = "SmartPixelsReceiver";
@@ -42,8 +43,11 @@ public class SmartPixelsReceiver extends BroadcastReceiver {
    private boolean mEnabled;
    private boolean mOnPowerSave;
    private boolean mPowerSave;
+   private boolean mOnAOD;
+   private boolean mAOD;
    private boolean mServiceRunning = false;
    private boolean mRegisteredReceiver = false;
+   private int mDisplayState;
 
    public SmartPixelsReceiver(Context context) {
        mContext = context;
@@ -89,6 +93,9 @@ public class SmartPixelsReceiver extends BroadcastReceiver {
                    Settings.System.SMART_PIXELS_ON_POWER_SAVE),
                    false, this, UserHandle.USER_ALL);
            mResolver.registerContentObserver(Settings.System.getUriFor(
+                   Settings.System.SMART_PIXELS_ON_AOD),
+                   false, this, UserHandle.USER_ALL);
+           mResolver.registerContentObserver(Settings.System.getUriFor(
                    Settings.System.SMART_PIXELS_PATTERN),
                    false, this, UserHandle.USER_ALL);
            mResolver.registerContentObserver(Settings.System.getUriFor(
@@ -102,6 +109,10 @@ public class SmartPixelsReceiver extends BroadcastReceiver {
            update();
        }
 
+       public void dozeScreenState(int displayState) {
+           mDisplayState = displayState;
+       }
+
        public void update() {
            mEnabled = (Settings.System.getIntForUser(
                    mResolver, Settings.System.SMART_PIXELS_ENABLE,
@@ -109,9 +120,16 @@ public class SmartPixelsReceiver extends BroadcastReceiver {
            mOnPowerSave = (Settings.System.getIntForUser(
                    mResolver, Settings.System.SMART_PIXELS_ON_POWER_SAVE,
                    0, UserHandle.USER_CURRENT) == 1);
+           mOnAOD = (Settings.System.getIntForUser(
+                   mResolver, Settings.System.SMART_PIXELS_ON_AOD,
+                   0, UserHandle.USER_CURRENT) == 1);
            mPowerSave = mPowerManager.isPowerSaveMode();
 
-           if (mEnabled || mOnPowerSave) {
+           if (mDisplayState == Display.STATE_DOZE && mDisplayState == Display.STATE_DOZE_SUSPEND) {
+               mAOD = true;
+           }
+
+           if (mEnabled || mOnPowerSave || mOnAOD) {
                if (!mRegisteredReceiver)
                    registerReceiver();
            } else if (mRegisteredReceiver) {
@@ -132,6 +150,21 @@ public class SmartPixelsReceiver extends BroadcastReceiver {
                    mContext.startService(mSmartPixelsService);
                    Log.d(TAG, "Restarted Smart Pixels Service by Power Save enable");
                }
+           if (!mEnabled && mOnAOD) {
+               dozeScreenState(Display.STATE_DOZE);
+               if (mAOD && !mServiceRunning) {
+                   mContext.startService(mSmartPixelsService);
+                   mServiceRunning = true;
+                   Log.d(TAG, "Started Smart Pixels Service by AOD enable");
+               } else if (mAOD && mServiceRunning) {
+                   mContext.stopService(mSmartPixelsService);
+                   mServiceRunning = false;
+                   Log.d(TAG, "Stopped Smart Pixels Service by AOD disable");
+               } else if (mAOD && mServiceRunning) {
+                   mContext.stopService(mSmartPixelsService);
+                   mContext.startService(mSmartPixelsService);
+                   Log.d(TAG, "Restarted Smart Pixels Service by AOD enable");
+               }
            } else if (mEnabled && !mServiceRunning) {
                mContext.startService(mSmartPixelsService);
                mServiceRunning = true;
@@ -147,6 +180,7 @@ public class SmartPixelsReceiver extends BroadcastReceiver {
            }
        }
    }
+}
 
    @Override
    public void onReceive(final Context context, Intent intent) {
